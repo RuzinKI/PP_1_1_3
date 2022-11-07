@@ -4,9 +4,7 @@ import jm.task.core.jdbc.model.User;
 import jm.task.core.jdbc.util.Util;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,7 +12,8 @@ public class UserDaoJDBCImpl implements UserDao {
 
 
     private static final String CREATE_USERS_TABLE = """
-            CREATE TABLE IF NOT EXISTS user(id SERIAL,
+            CREATE TABLE IF NOT EXISTS user(
+            id SERIAL,
             name TEXT,
             lastName TEXT,
             age INT);
@@ -49,69 +48,171 @@ public class UserDaoJDBCImpl implements UserDao {
 
     }
 
-    public void createUsersTable() {
-        try (var connection = Util.get();
-             var statement = connection.createStatement()) {
+    public void createUsersTable() throws SQLException {
+        Connection connection = null;
+        Statement statement = null;
+        try {
+            connection = Util.get();
+            statement = connection.createStatement();
+
+            connection.setAutoCommit(false);
             statement.execute(CREATE_USERS_TABLE);
+            connection.commit();
+
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            if (connection != null) {
+                connection.rollback();
+            }
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+            if (statement != null) {
+                statement.close();
+            }
         }
     }
 
-    public void dropUsersTable() {
-        try (var connection = Util.get();
-             var statement = connection.createStatement()) {
+    public void dropUsersTable() throws SQLException {
+        Connection connection = null;
+        Statement statement = null;
+        try {
+            connection = Util.get();
+            statement = connection.createStatement();
+
+            connection.setAutoCommit(false);
             statement.execute(DROP_USERS_TABLE);
+            connection.commit();
+
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            if (connection != null) {
+                connection.rollback();
+            }
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+            if (statement != null) {
+                statement.close();
+            }
         }
     }
 
-    public void saveUser(String name, String lastName, byte age) {
-        try (var connection = Util.get();
-             var prepareStatement = connection.prepareStatement(SAVE_USER)) {
+    public void saveUser(String name, String lastName, byte age) throws SQLException {
+        Connection connection = null;
+        PreparedStatement prepareStatement = null;
 
+        try  {
+            connection = Util.get();
+            prepareStatement = connection.prepareStatement(SAVE_USER);
+
+            connection.setAutoCommit(false);
             prepareStatement.setString(1, name);
             prepareStatement.setString(2, lastName);
             prepareStatement.setInt(3, age);
-
             boolean execute = prepareStatement.execute();
+            connection.commit();
+
             if (!execute) {
                 System.out.println("User с именем " + name + " добавлен в базу данных");
             }
-
-
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            if (connection != null) {
+                connection.rollback();
+            }
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+            if (prepareStatement != null) {
+                prepareStatement.close();
+            }
         }
     }
 
-    public void removeUserById(long id) {
-        try (var connection = Util.get();
-             var prepareStatement = connection.prepareStatement(REMOVE_USER_BY_ID)) {
+    public void removeUserById(long id) throws SQLException {
+        Connection connection = null;
+        PreparedStatement prepareStatement = null;
 
+        try {
+            connection = Util.get();
+            prepareStatement = connection.prepareStatement(REMOVE_USER_BY_ID);
+
+            connection.setAutoCommit(false);
             prepareStatement.setLong(1, id);
             prepareStatement.execute();
+            connection.commit();
 
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            if (connection != null) {
+                connection.rollback();
+            }
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+            if (prepareStatement != null) {
+                prepareStatement.close();
+            }
         }
     }
 
-    public List<User> getAllUsers() {
-        try (var connection = Util.get();
-             var prepareStatement = connection.prepareStatement(GET_ALL_USERS)) {
+    public List<User> getAllUsers() throws SQLException {
+        Connection connection = null;
+        PreparedStatement prepareStatement = null;
+        List<User> users = new ArrayList<>();
 
+        try {
+            connection = Util.get();
+            prepareStatement = connection.prepareStatement(GET_ALL_USERS);
+
+            connection.setAutoCommit(false);
             ResultSet resultSet = prepareStatement.executeQuery();
 
-            List<User> users = new ArrayList<>();
             while (resultSet.next()) {
                 users.add(buildUsers(resultSet));
             }
-            return users;
+
+            connection.commit();
 
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            if (connection != null) {
+                connection.rollback();
+            }
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+            if (prepareStatement != null) {
+                prepareStatement.close();
+            }
+            return users;
+        }
+    }
+
+    public void cleanUsersTable() throws SQLException {
+        Connection connection = null;
+        Statement statement = null;
+
+        try {
+            connection = Util.get();
+            statement = connection.createStatement();
+
+            connection.setAutoCommit(false);
+            statement.execute(CLEAN_USERS_TABLE);
+            connection.commit();
+
+        } catch (SQLException e) {
+            if (connection != null) {
+                connection.rollback();
+            }
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+            if (statement != null) {
+                statement.close();
+            }
         }
     }
 
@@ -123,14 +224,5 @@ public class UserDaoJDBCImpl implements UserDao {
         );
         user.setId(resultSet.getLong("id"));
         return user;
-    }
-
-    public void cleanUsersTable() {
-        try (var connection = Util.get();
-             var statement = connection.createStatement()) {
-            statement.execute(CLEAN_USERS_TABLE);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 }
